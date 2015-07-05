@@ -5,10 +5,12 @@ var Translator = require('./translator');
 
 var map = _.map,
 		every = _.every,
+		clone = _.clone,
 		first = _.first,
 		extend = _.extend,
 		filter = _.filter,
 		forEach = _.forEach,
+		isEmpty = _.isEmpty,
 		isString = _.isString,
 		isObject = _.isObject,
 		isPromise = function (v) { return _.isFunction(v.then); },
@@ -25,22 +27,32 @@ function ValidatorTranslator() {
 function Validator(data, rules, options) {
 	this.rules = rules;
 	this.data = data;
-	this.definitions = Validator.definitions;
+	this.definitions = clone(Validator.definitions);
 	this.splittedRules = {};
+	this._validating = false;
 
-	_.extend(this, options);
+	extend(this, options);
 }
 
 function defineRule(ruleName, fn) {
 	this.definitions[ruleName] = fn;
 }
 
+var URL_REGEXP = /^(ftp|http|https):\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?$/;
+var EMAIL_REGEXP = /^[a-z0-9!#$%&'*+\/=?^_`{|}~.-]+@[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/i;
+
 Validator.definitions = {
 	string: function(value) {
-		return _.isString(value);
+		return isString(value);
 	},
 	required: function(value) {
-		return !_.isUndefined(value);
+		return !isEmpty(value);
+	},
+	url: function(value) {
+		return URL_REGEXP.test(value);
+	},
+	email: function(value) {
+		return EMAIL_REGEXP.test(value);
 	},
 	max: function(value, maxValue) {
 		return value.length <= maxValue;
@@ -49,23 +61,42 @@ Validator.definitions = {
 		return value.length >= minValue;
 	}
 };
+
 Validator.defineRule = defineRule;
 
 Validator.prototype = {
 	defineRule: defineRule,
-	hasSucceed: function () {
+
+	validating: function() {
+		return this._validating;
+	},
+
+	validated: function () {
+		return this._validated;
+	},
+	
+	passes: function () {
+		if(!this.validating() && this.hasNoPromise() && !this.validated()) {
+			this.validate();
+		}
+
 		var allTrue = every(this.validations, function(validation) {
 			var isTrue = first(map(validation, function(value, key) {
-				return value === true;
+				return value.value === true;
 			}));
 			return isTrue;
 		});
 		return allTrue;
 	},
+
+	fails: function() {
+		return !this.passes();
+	},
+
 	hasNoPromise: function() {
-		return every(this.validations, function(p) {
-			return first(map(p, function (v) {
-				return !isPromise(v.value);
+		return every(this.validations, function(validation) {
+			return first(map(validation, function (value) {
+				return !isPromise(value.value);
 			}));
 		});
 	},
@@ -76,61 +107,73 @@ Validator.prototype = {
 			}));
 		});
 	},
+	getResponse: function(responseType) {
+		var response;
+
+		switch(responseType) {
+			default:
+			case 'resolved':
+				response = this.getResolvedResponse();
+				break;
+			case 'rejected':
+				response = this.getRejectedResponse();
+				break;
+		}
+
+		return response;
+	},
+	getResolvedResponse: function() {
+		return this;
+	},
 	getRejectedResponse: function () {
-		var self = this,
-				validations = this.validations;
+		return this;
+	},
+	getMessages: function () {
+		var template = (this.templatePath ? require(this.templatePath) : this.translator) || new ValidatorTranslator();
+		var messages = {};
 
-		return {
-			errors: this.filterValidations(false),
-			validations: validations,
-			succeed: this.hasSucceed(),
-			getMessages: function() {
-				var template = (self.templatePath ? require(self.templatePath) : self.translator) || new ValidatorTranslator();
-				var messages = {};
+		forEach(this.errors, function (validation) {
+			first(map(validation, function (value, key) {
+				var msg = template.hasOwnProperty(key) && template[key];
 
-				forEach(this.errors, function (validation) {
-					first(map(validation, function (value, key) {
-						var msg = template.hasOwnProperty(key) && template[key];
+				if(isObject(msg)) {
+					switch(typeof value.attributeValue) {
+						default:
+						case 'string':
+							msg = msg.string;
+							break;
+						case 'number':
+							msg = msg.numeric;
+							break;
+						case 'array':
+							msg = msg.array;
+							break;
+					}
+				} else if(isUndefined(msg)) {
+					msg = '??';
+				}
 
-						if(isObject(msg)) {
-							switch(typeof value.attributeValue) {
-								default:
-								case 'string':
-									msg = msg.string;
-									break;
-								case 'number':
-									msg = msg.numeric;
-									break;
-								case 'array':
-									msg = msg.array;
-									break;
-							}
-						} else if(isUndefined(msg)) {
-							msg = '??';
-						}
+				var thisAttr = ':' + key;
 
-						var thisAttr = ':' + key;
+				if(msg.indexOf(thisAttr) > -1){
+					msg = msg.replace(new RegExp(thisAttr, 'g'), first(value.args));
+				}
 
-						if(msg.indexOf(thisAttr) > -1){
-							msg = msg.replace(new RegExp(thisAttr, 'g'), first(value.args));
-						}
+				if(isUndefined(messages[value.key])){
+					messages[value.key] = {};
+				}
 
-						if(isUndefined(messages[value.key])){
-							messages[value.key] = {};
-						}
+				messages[value.key][key] = msg.replace(/(\:attribute)/g, value.key);
+			}));
+		});
 
-						messages[value.key][key] = msg.replace(/(\:attribute)/g, value.key) || '??';
-					}));
-				});
-
-				return messages;
-			}
-		};
+		return messages;
 	},
 	validate: function() {
 		var self = this;
 
 		this.splitRules();
+		this._validating = true;
 
 		var validations = this.validations = flattenDeep(map(this.splittedRules, function(rules, key) {
 			var attributeValue = self.data[key];
@@ -142,7 +185,8 @@ Validator.prototype = {
 				if(isString(rule)) {
 					validation[rule] = {
 						value: self.definitions[rule](attributeValue),
-						attributeValue: attributeValue
+						attributeValue: attributeValue,
+						key: key
 					};
 
 					return validation;
@@ -162,10 +206,14 @@ Validator.prototype = {
 		}));
 
 		if(this.hasNoPromise()) {
-			if(this.hasSucceed()) {
-				return validations;
+			this._validating = false;
+			this._validated = true;
+			this.errors = this.filterValidations(false);
+
+			if(this.passes()) {
+				return this.getResponse('resolved');
 			} else {
-				return this.getRejectedResponse();
+				return this.getResponse('rejected');
 			}
 		} else {
 			var deferred = Q.defer();
@@ -184,10 +232,14 @@ Validator.prototype = {
 			});
 
 			Q.all(promises).then(function() {
-				if(self.hasSucceed()) {
-					deferred.resolve(validations);
+				self._validating = false;
+				self._validated = true;
+				self.errors = self.filterValidations(false);
+
+				if(self.passes()) {
+					deferred.resolve(self.getResponse('resolved'));
 				} else {
-					deferred.reject(self.getRejectedResponse());
+					deferred.reject(self.getResponse('rejected'));
 				}
 			});
 

@@ -55,11 +55,14 @@ Validator.defineRule('unique', function (
 ```js
 module.exports = {
 	registerUser: function (req, res) {
-		var validator = new Validator(req.body, {
+		var rules = {
 			email: 'required|unique:users,email'
-		}, {
+		};
+
+		var validator = new Validator(req.body, rules, {
 			templatePath: 'my-custom-language-variables.js'
 		});
+
 		validator.validate().then(function () {
 			// THE VALIDATION HAS NO ERRORS! :)
 
@@ -123,5 +126,7 @@ var validator = new Validator(req.body, {
 - max:length
 - min:length
 - string
+- email
+- url
 
 (Soon more)
