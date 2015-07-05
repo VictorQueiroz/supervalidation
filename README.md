@@ -2,6 +2,11 @@
 
 Easy validation for your forms. Based on Laravel 3.x validation module
 
+## Installation
+```
+npm install --save supervalidation
+```
+
 ## Usage
 
 The response could or could not be a promise. If you provide only synchronous methods (which be default all rule definitions is), there will be no promise at the end, but if you do, you will totally need to deal with a promise.
