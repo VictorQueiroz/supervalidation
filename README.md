@@ -19,6 +19,12 @@ var validator = new Validator({
 }, {
 	email: 'string|required|email'
 });
+
+if(validator.passes()) {
+	// do some work
+} else if (validator.fails()) {
+	// do more work
+}
 ```
 
 ### Example 2
@@ -82,7 +88,7 @@ When you fire `err.getMessages()` it will return a bunch of messages which by de
 
 All the messages are consumed from a file, which by default are [this](https://github.com/VictorQueiroz/supervalidation/blob/master/src/validation.template.js). It just return a big object (just like Grunt), which symbolizes each RULE that is defined.
 
-```
+```js
 module.exports = {
 	min: {
 		numeric: 'The :attribute must be at least :min.',
@@ -97,7 +103,7 @@ If the rule is an object and not a string, it will make a check through the type
 
 `:attribute` will always be replaced by the name of the attribute, and `:min` in this case will be replaced by the first argument of the rule usage, and you can use this for any rule (expect for those who has no parameters, like `required`)
 
-```
+```js
 module.exports = {
 	myCustomRule: 'The :attribute must have at least :myCustomRule items.'
 }
@@ -106,14 +112,14 @@ module.exports = {
 ## Changing your language variables template 
 
 ### Example 1 (Globally)
-```
+```js
 var path = require('path');
 var Translator = require('supervalidator/translator');
 Translator.setTemplatePath(path.resolve(__dirname, 'app/lang/en/validation.js'));
 ```
 
 ### Example 2 (Privately)
-```
+```js
 var validator = new Validator(req.body, {
 	email: 'required|unique:users,email'
 }, {
