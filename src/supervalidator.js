@@ -11,6 +11,7 @@ var map = _.map,
 		filter = _.filter,
 		forEach = _.forEach,
 		isEmpty = _.isEmpty,
+		isNumber = _.isNumber,
 		isString = _.isString,
 		isObject = _.isObject,
 		isPromise = function (v) { return _.isFunction(v.then); },
@@ -46,7 +47,7 @@ Validator.definitions = {
 		return isString(value);
 	},
 	required: function(value) {
-		return !isEmpty(value);
+		return isNumber(value) || !isEmpty(value);
 	},
 	url: function(value) {
 		return URL_REGEXP.test(value);
