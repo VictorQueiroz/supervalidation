@@ -35,6 +35,7 @@ var Q = require('q');
 
 Validator.defineRule('unique', function (
 	value /* Value typed in the field by the user */,
+	attributeName /* Attribute name (in our case: "email") */,
 	collection /* Param 1 */,
 	attribute /* Param 2 */
 ) {

@@ -172,12 +172,23 @@ Validator.prototype = {
 	},
 	validate: function() {
 		var self = this;
+	getDefinition: function (key) {
+		var definitions = this.definitions;
 
-		this.splitRules();
-		this._validating = true;
+		if(isUndefined(definitions[key])) {
+			return this.defaultRuleFn(key);
+		}
 
-		var validations = this.validations = flattenDeep(map(this.splittedRules, function(rules, key) {
-			var attributeValue = self.data[key];
+		return definitions[key];
+	},
+	defaultRuleFn: function (key) {
+		return function () {
+			console.error('WARNING: The rule', key, 'is not defined');
+
+			return true;
+		};
+	},
+			var defaultArgs = [attributeValue, key];
 
 			return map(rules, function(rule) {
 				var validation = {
@@ -185,7 +196,7 @@ Validator.prototype = {
 
 				if(isString(rule)) {
 					validation[rule] = {
-						value: self.definitions[rule](attributeValue),
+						value: self.getDefinition(rule).apply(self.definitions, defaultArgs),
 						attributeValue: attributeValue,
 						key: key
 					};
@@ -194,7 +205,7 @@ Validator.prototype = {
 				} else if (isObject(rule)) {
 					return map(rule, function(args, k) {
 						validation[k] = {
-							value: self.definitions[k].apply(self, [attributeValue].concat(args)),
+							value: self.getDefinition(k).apply(self, defaultArgs.concat(args)),
 							args: args,
 							key: key,
 							attributeValue: attributeValue
