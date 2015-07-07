@@ -144,7 +144,7 @@ Validator.prototype = {
 							msg = msg.string;
 							break;
 						case 'number':
-							msg = msg.numeric;
+							msg = msg.number;
 							break;
 						case 'array':
 							msg = msg.array;
