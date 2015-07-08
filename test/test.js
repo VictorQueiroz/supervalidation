@@ -21,7 +21,7 @@ describe('Validator', function () {
 			email: 'required|max:10|unique:users,email'
 		});
 
-		validator.defineRule('unique', function(value, collection, colAttribute) {
+		validator.defineRule('unique', function(value, attributeName, collection, colAttribute) {
 			var deferred = Q.defer();
 			setTimeout(function() {
 				deferred.reject();
@@ -63,6 +63,91 @@ describe('Validator', function () {
 
 		assert.equal(false, validator.passes());
 	});
+
+	it('should include attribute in the validation definition', function () {
+		var validator = new Validator({
+			password: '3213213'
+		}, {
+			password: 'my-rule'
+		});
+
+		var hasAttributeName = false;
+		validator.defineRule('my-rule', function (value, attributeName) {
+			if(attributeName === 'password' && value === '3213213') {
+				hasAttributeName = true;
+			}
+			return /(0+)/.test(value);
+		});
+
+		if(validator.fails()) {
+			assert.ok(hasAttributeName);
+		}
+	});
+
+	it('should validate complex objects', function () {
+		var validator = new Validator({
+		  name: 'John Doe',
+		  address: {
+				route: 'Street, 100'
+			}
+		},{
+		  'address.route': 'string|required'
+		});
+
+		assert.ok(validator.passes());
+
+		var validator = new Validator({
+		  name: 'John Doe',
+		  address: {
+				route: 'Street, 100',
+				streetNumber: 102
+			}
+		},{
+		  'address.route': 'string|required',
+		  'address.streetNumber': 'number|required'
+		});
+		assert.ok(validator.passes());
+
+		var validator = new Validator({
+		  a: {
+		  	b: {
+		  		c: {
+		  			d: {
+		  				e: {
+		  					f: '_A_B_C@gmail.com'
+		  				},
+		  				e2: {
+		  					f: {
+		  						g1: {
+		  							string: 'string'
+		  						}
+		  					}
+		  				}
+		  			}
+		  		}
+		  	}
+		  }
+		},{
+		  'a.b.c.d.e.f': 'email|required',
+		  'a.b.c.d.e2.f.g1.string': 'string|required'
+		});
+		assert.ok(validator.passes());
+
+		var validator = new Validator({
+		  name: 'John Doe',
+		  address: {
+				route: 'Street, 100',
+				streetNumber: '102'
+			}
+		},{
+		  'address.route': 'string|required',
+		  'address.streetNumber': 'number|required'
+		});
+
+		validator.validate();
+
+		assert.equal('The address.streetNumber must be a number.', validator.getMessages()['address.streetNumber']['number']);
+	});
 });
 
 describe('Validation definitions', function () {
@@ -84,7 +169,31 @@ describe('Validation definitions', function () {
 
 		assert.ok(validator.fails());
 		assert.equal('The email must be a valid email address.', validator.getMessages().email.email);
-	})
+	});
+
+	it('should validate required fields', function () {
+		var data = {
+			email: 'myfakeemail@gmail.com',
+			userId: 212
+		};
+		var validator = new Validator(data, {
+			email: 'email|required',
+			userId: 'number|required'
+		});
+
+		assert.ok(validator.passes());
+
+		var data = {
+			email: 'myfakeemail@gmail.com',
+			userId: '212'
+		};
+		var validator = new Validator(data, {
+			email: 'email|required',
+			userId: 'number|required'
+		});
+
+		assert.equal(false, validator.passes());
+	});
 
 	it('should validate urls', function() {
 		var data = {
@@ -109,7 +218,7 @@ describe('Validation definitions', function () {
 		assert.ok(validator.fails());
 
 		var errorMsgs = validator.getMessages();
-		
+
 		assert.equal('The email must be a valid email address.', errorMsgs.email.email);
 		assert.equal('The profileUrl format is invalid.', errorMsgs.profileUrl.url);
 

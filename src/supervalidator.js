@@ -39,6 +39,36 @@ function defineRule(ruleName, fn) {
 	this.definitions[ruleName] = fn;
 }
 
+function splitRules (rules) {
+  var splittedRules = {};
+
+  extend(splittedRules, mapValues(rules, function(value) {
+    if(isObject(value)) {
+      return splitRules(value);
+    }
+
+    return map(value.split('|'), function(value) {
+      var match = value.split(':'),
+          matchLength = match.length,
+          args = [],
+          obj = {};
+
+      value = match[0];
+
+      if(matchLength > 1) {
+        args = args.concat(match[1].split(','));
+
+        obj[value] = args;
+        return obj;
+      }
+
+      return value;
+    });
+  }));
+
+  return splittedRules;
+}
+
 var URL_REGEXP = /^(ftp|http|https):\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?$/;
 var EMAIL_REGEXP = /^[a-z0-9!#$%&'*+\/=?^_`{|}~.-]+@[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/i;
 
@@ -60,6 +90,9 @@ Validator.definitions = {
 	},
 	min: function(value, minValue) {
 		return value.length >= minValue;
+	},
+	number: function (value) {
+		return isNumber(value);
 	}
 };
 
@@ -75,7 +108,7 @@ Validator.prototype = {
 	validated: function () {
 		return this._validated;
 	},
-	
+
 	passes: function () {
 		if(!this.validating() && this.hasNoPromise() && !this.validated()) {
 			this.validate();
@@ -150,9 +183,9 @@ Validator.prototype = {
 							msg = msg.array;
 							break;
 					}
-				} else if(isUndefined(msg)) {
-					msg = '??';
 				}
+
+				msg = msg || '??';
 
 				var thisAttr = ':' + key;
 
@@ -170,8 +203,18 @@ Validator.prototype = {
 
 		return messages;
 	},
-	validate: function() {
-		var self = this;
+	splitRules: function(rules) {
+		return splitRules(rules);
+	},
+	accessKey: function (data, key) {
+	  var nextObj = data;
+	  
+	  forEach(key.split('.'), function (key) {
+	    nextObj = nextObj[key];
+	  });
+	  
+	  return nextObj;
+	},
 	getDefinition: function (key) {
 		var definitions = this.definitions;
 
@@ -188,6 +231,11 @@ Validator.prototype = {
 			return true;
 		};
 	},
+	createValidations: function () {
+		var self = this;
+
+		return flattenDeep(map(this.splittedRules, function(rules, key) {
+			var attributeValue = self.accessKey(self.data, key);
 			var defaultArgs = [attributeValue, key];
 
 			return map(rules, function(rule) {
@@ -216,6 +264,14 @@ Validator.prototype = {
 				}
 			});
 		}));
+	},
+	validate: function() {
+		var self = this;
+
+		this.splittedRules = this.splitRules(this.rules);
+		this._validating = true;
+
+		var validations = this.validations = this.createValidations();
 
 		if(this.hasNoPromise()) {
 			this._validating = false;
@@ -257,29 +313,6 @@ Validator.prototype = {
 
 			return deferred.promise;
 		}
-	},
-	splitRules: function() {
-		extend(this.splittedRules, mapValues(this.rules, function(value) {
-			return map(value.split('|'), function(value) {
-				var match = value.split(':'),
-						matchLength = match.length,
-						args = [],
-						obj = {};
-
-				value = match[0];
-				
-				if(matchLength > 1) {
-					args = args.concat(match[1].split(','));
-
-					obj[value] = args;
-					return obj;
-				}
-
-				return value;
-			});
-		}));
-
-		return this.splittedRules;
 	}
 };
 

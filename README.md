@@ -85,6 +85,24 @@ module.exports = {
 
 When you fire `err.getMessages()` it will return a bunch of messages which by default are in english, but you can change at any time your template.
 
+### Example 3 (validating complex objects)
+
+```js
+var validator = new Validator({
+	address: {
+		streetNumber: 1234
+	}
+}, {
+	'address.streetNumber': 'number|required'
+});
+
+if(validator.fails()) {
+	return res.status(400).json(validator.getMessages());
+}
+
+// do the work
+```
+
 ## Changing your language variables
 
 All the messages are consumed from a file, which by default are [this](https://github.com/VictorQueiroz/supervalidation/blob/master/src/validation.template.js). It just return a big object (just like Grunt), which symbolizes each RULE that is defined.
@@ -110,7 +128,7 @@ module.exports = {
 }
 ```
 
-## Changing your language variables template 
+## Changing your language variables template
 
 ### Example 1 (Globally)
 ```js
@@ -134,6 +152,7 @@ var validator = new Validator(req.body, {
 - min:length
 - string
 - email
+- number
 - url
 
 (Soon more)
