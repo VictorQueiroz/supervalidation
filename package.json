@@ -1,6 +1,6 @@
 {
   "name": "supervalidation",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Easy validation for your applications. Based on Laravel 3.x validation module",
   "main": "index.js",
   "scripts": {
