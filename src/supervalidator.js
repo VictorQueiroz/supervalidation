@@ -207,10 +207,10 @@ Validator.prototype = {
 		return splitRules(rules);
 	},
 	accessKey: function (data, key) {
-	  var nextObj = data;
+	  var nextObj = data || {};
 	  
 	  forEach(key.split('.'), function (key) {
-	    nextObj = nextObj[key];
+	    nextObj = nextObj && nextObj[key] || '';
 	  });
 	  
 	  return nextObj;

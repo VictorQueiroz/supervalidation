@@ -14,6 +14,16 @@ describe('Validator', function () {
 		assert.equal('The email may not be greater than 10 characters.', errorMessages.email.max);
 	});
 
+	it('should deal with undefined properties or undefined data', function () {
+		var validator = new Validator(null, {
+			email: 'required|max:10'
+		});
+
+		assert.ok(validator.fails());
+		assert.equal('The email field is required.', validator.getMessages().email.required);
+		assert.equal('The email may not be greater than 10 characters.', validator.getMessages().email.max);
+	});
+
 	it('should support deferred validations', function (done) {
 		var validator = new Validator({
 			email: 'myfakeemail@gmail.com'
